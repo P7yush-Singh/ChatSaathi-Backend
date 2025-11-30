@@ -2,12 +2,11 @@
 const PORT = process.env.PORT || 4000;
 // You can set a comma-separated list in Render env var, e.g.
 // CORS_ORIGIN=https://chatsaathi.vercel.app,https://www.chatsaathi.vercel.app,http://localhost:3000
-const CORS_ORIGIN = process.env.CORS_ORIGIN || "http://localhost:3000";
+const CORS_ORIGIN = process.env.CORS_ORIGIN || "https://chatsaathi.vercel.app";
 
 const allowedOrigins = CORS_ORIGIN.split(",").map(o => o.trim()).filter(Boolean);
 
 async function start() {
-  ...
   const io = new Server(server, {
     cors: {
       origin: function(origin, callback) {
@@ -47,3 +46,4 @@ async function start() {
   app.use(express.json());
   ...
 }
+
