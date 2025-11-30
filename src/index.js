@@ -44,6 +44,4 @@ async function start() {
   // If you prefer to use the cors package you can also:
   // app.use(cors({ origin: (origin, cb) => { ...same logic... }, credentials: true }));
   app.use(express.json());
-  ...
 }
-
