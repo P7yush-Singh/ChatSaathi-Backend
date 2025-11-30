@@ -1,69 +1,49 @@
-// src/index.js
-import "dotenv/config";
-import express from "express";
-import cors from "cors";
-import http from "http";
-import { Server } from "socket.io";
-
-import { connectDB } from "./config/db.js";
-import { authRouter } from "./routes/auth.routes.js";
-import { conversationRouter } from "./routes/conversation.routes.js";
-import { messageRouter } from "./routes/message.routes.js";
-import { registerChatHandlers } from "./sockets/chatSocket.js";
-import { messageModifyRouter } from "./routes/message.modify.routes.js";
-import { searchRouter } from "./routes/search.routes.js";
-import { readRouter } from "./routes/read.routes.js"; // ✅ added
-import { profileRouter } from "./routes/profile.routes.js";
-
+// src/index.js (edited portion)
 const PORT = process.env.PORT || 4000;
+// You can set a comma-separated list in Render env var, e.g.
+// CORS_ORIGIN=https://chatsaathi.vercel.app,https://www.chatsaathi.vercel.app,http://localhost:3000
 const CORS_ORIGIN = process.env.CORS_ORIGIN || "http://localhost:3000";
 
+const allowedOrigins = CORS_ORIGIN.split(",").map(o => o.trim()).filter(Boolean);
+
 async function start() {
-  await connectDB();
-
-  const app = express();
-  const server = http.createServer(app);
-
+  ...
   const io = new Server(server, {
     cors: {
-      origin: CORS_ORIGIN,
+      origin: function(origin, callback) {
+        // allow requests with no origin (e.g. mobile apps, curl)
+        if (!origin) return callback(null, true);
+        if (allowedOrigins.includes(origin)) {
+          return callback(null, true);
+        }
+        return callback(new Error("CORS origin not allowed"));
+      },
       credentials: true,
     },
   });
 
-  // Make io available to routes using req.app.get("io")
-  app.set("io", io); // ✅ moved above routes
+  app.set("io", io);
 
-  app.use(
-    cors({
-      origin: CORS_ORIGIN,
-      credentials: true,
-    })
-  );
+  app.use((req, res, next) => {
+    const origin = req.headers.origin;
+    if (!origin) {
+      // no origin (server-to-server or curl) — allow
+      res.setHeader("Access-Control-Allow-Origin", "*");
+    } else if (allowedOrigins.includes(origin)) {
+      // echo back exact origin (required when credentials: true)
+      res.setHeader("Access-Control-Allow-Origin", origin);
+      res.setHeader("Access-Control-Allow-Credentials", "true");
+    }
+    res.setHeader("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+    if (req.method === "OPTIONS") {
+      return res.status(204).end();
+    }
+    next();
+  });
+
+  // If you prefer to use the cors package you can also:
+  // app.use(cors({ origin: (origin, cb) => { ...same logic... }, credentials: true }));
   app.use(express.json());
-
-  app.get("/", (req, res) => {
-    res.json({ status: "Chat Saathi backend running" });
-  });
-
-  // REST API routes
-  app.use("/api/auth", authRouter);
-  app.use("/api/conversations", conversationRouter);
-  app.use("/api/messages", messageRouter);         // /send etc.
-  app.use("/api/messages", messageModifyRouter);   // /:id edit/delete
-  app.use("/api/read", readRouter);                // ✅ mark-as-read
-  app.use("/api/search", searchRouter);
-  app.use("/api/profile", profileRouter);
-
-  // Socket handlers
-  registerChatHandlers(io);
-
-  server.listen(PORT, () => {
-    console.log(`🚀 Backend listening on http://localhost:${PORT}`);
-  });
+  ...
 }
-
-start().catch((err) => {
-  console.error("Failed to start server:", err);
-  process.exit(1);
-});
